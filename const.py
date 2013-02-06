@@ -7,15 +7,19 @@ def Checked( oldClass ):
 		__slots__ = ['constEnabled']
 
 		def __init__(self, *args):
-			self.constEnabled = False
-			return super(classWithConstFunct, self).__init__(*args)
+			checkedParent = super(classWithConstFunct, self).__init__(*args)
+			super().__setattr__('constEnabled', False)
+			return checkedParent
 
 		def __setattr__(self, name, value):
 				try:
-					# If name exists already check for const being on before setting it
+					# If passd in argument name doesn't exist AttributeError is thrown
 					super().__getattribute__(name)
-					if self.constEnabled:
-						print("Error: attribute set in Const method of " + str( self.__class__ ) )
+					constEnabled = super().__getattribute__('constEnabled')
+					
+					# Make sure we don't block constEnabled from unsetting itself when true
+					if constEnabled and ( str(name) != 'constEnabled'):
+						raise ConstViolated
 					else:
 						# Const is off so its okay to set variable
 						raise AttributeError
@@ -23,3 +27,18 @@ def Checked( oldClass ):
 					super().__setattr__(name, value)
 	return classWithConstFunct
 
+def Const( oldFunc ):
+	""" function decorator used on classes marked with Checked decorator to signify const method """
+	def enableConst( *args ):
+		args[0].__setattr__('constEnabled', True)
+		oldFuncResult = None
+		try:
+			oldFuncResult = oldFunc( *args )
+		except ConstViolated:
+			print("Error: attribute set in Const method of " + str( args[0]) )
+		args[0].__setattr__('constEnabled', False)
+		return oldFuncResult
+	return enableConst
+
+class ConstViolated( Exception ):
+	pass

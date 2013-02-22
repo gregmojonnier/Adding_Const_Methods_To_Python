@@ -27,16 +27,27 @@ def Checked( oldClass ):
 					super().__setattr__(name, value)
 	return classWithConstFunct
 
+# Global variable to track the number of nested function calls
+# otherwise our constEnabled flag gets turned off by nested const calls
+outstandingNestedFunctionCalls = 0
+
 def Const( oldFunc ):
 	""" function decorator used on classes marked with Checked decorator to signify const method """
 	def enableConst( *args ):
+		global outstandingNestedFunctionCalls
+		outstandingNestedFunctionCalls += 1
+
 		args[0].__setattr__('constEnabled', True)
 		oldFuncResult = None
 		try:
 			oldFuncResult = oldFunc( *args )
 		except ConstViolated:
 			print("Error: attribute set in Const method of " + str( args[0]) )
-		args[0].__setattr__('constEnabled', False)
+
+		# Only on the original const function call will we turn constEnabled off
+		if outstandingNestedFunctionCalls == 1:
+			args[0].__setattr__('constEnabled', False)
+		outstandingNestedFunctionCalls -= 1
 		return oldFuncResult
 	return enableConst
 
